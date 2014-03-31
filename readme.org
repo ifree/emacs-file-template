@@ -1,0 +1,25 @@
+* File template
+  Tool for emacs to load file template when create new file, or load project
+  template.
+** Feature
+*** auto load template when create files
+    eg: you can auto create header guard for c++ header files.
+*** make project structure by load project template
+    A template is not just single file, it also can organized as directory that
+    contains a set of template.
+** dependencies
+*** yasnippet
+    As a emacs user, I think yasnippet should be a must have tool, It's very
+    useful for auto insert code snippets. Now you can use yasnippet's syntax to
+    create template, that's easy.
+** configuration
+#+begin_src emacs_lisp
+;;file template
+(setq file-template-enabled t) ;;enable file template
+(autoload 'file-template-setup "filetemplate" nil t) ;;auto load
+(file-template-setup) ;; setup
+#+end_src
+
+
+happy coding!
+
