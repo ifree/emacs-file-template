@@ -9,6 +9,7 @@
 ;; file-template-toggle-auto-load
 
 ;;; Code:
+(require 'cl)
 (defgroup filetemplate nil
   "emacs file template"
   :version "1.0"
@@ -29,6 +30,43 @@
 (defcustom file-template-enabled nil
   "Enable file template or not")
 
+;; From http://www.emacswiki.org/emacs/ElispCookbook#toc58
+(defun directory-dirs (dir)
+  "Find all directories in DIR."
+  (unless (file-directory-p dir)
+    (error "Not a directory `%s'" dir))
+  (let ((dir (directory-file-name dir))
+        (dirs '())
+        (files (directory-files dir nil nil t)))
+    (dolist (file files)
+      (unless (member file '("." ".." ".git"))
+        (let ((file (concat dir "/" file)))
+          (when (file-directory-p file)
+            (setq dirs (append (cons file
+                                     (directory-dirs file))
+                               dirs))))))
+    dirs))
+
+(defun directory-files-rec (dir &optional pattern)
+  "find all files in dir"
+  (let ((dirs (directory-dirs dir))
+	(files (remove-if  (lambda (x) 
+                             (or 
+                              (file-directory-p x)
+                              (string-match "\\.$" x)))
+                           (directory-files dir t))))
+    (dolist (subdir dirs)
+      (setq files (append files 
+                          (delq nil (mapcar
+                            (lambda (f)
+                              (unless (or
+                                       (file-directory-p (concat subdir "/" f))
+                                       (not (string-match (or pattern ".*") f))
+                                       (member f '("." "..")))
+                                (concat subdir "/" f))
+                              )
+                            (directory-files subdir))))))
+    files))
 
 (defun file-template-file-to-string (file)
   "Read FILE content to string."
