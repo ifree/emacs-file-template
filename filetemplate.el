@@ -142,7 +142,7 @@
 
 (defun file-template-setup ()
   "Initial setup"
-  (add-to-list 'find-file-not-found-functions 'file-template-new-file-hook)  
+  (add-to-ordered-list 'find-file-not-found-functions 'file-template-new-file-hook)  
 )
 
 (provide 'filetemplate)
