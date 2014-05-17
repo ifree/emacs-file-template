@@ -17,15 +17,15 @@
   :group 'tools
 )
 
-
-(defcustom file-template-dir "~/.emacs.d/filetemplate"
+(defcustom file-template-dir
+  (concat (file-name-directory load-file-name) "templates")
   "Directory that stores file type template.")
 
 (defcustom file-template-ext "\\.tpl"
   "Template file extension.")
 
-(defcustom file-template-auto-insert nil
-  "Auto insert template when create new file.")
+(defcustom file-template-prompt 'y-or-n-p
+  "Prompt use when about to insert template.")
 
 (defcustom file-template-enabled nil
   "Enable file template or not")
@@ -112,9 +112,10 @@
 
 (defun file-template-process-template (template)
   "Process the TEMPLATE."
-  (if (file-directory-p template)
-      (file-template-process-templateEx template)
-    (yas-expand-snippet (file-template-file-to-string template)))
+  (when (funcall file-template-prompt "do you want to apply this template?")
+   (if (file-directory-p template)
+       (file-template-process-templateEx template)
+     (yas-expand-snippet (file-template-file-to-string template))))
   )
 
 (defun file-template-process-templateEx (template-dir)
@@ -141,7 +142,7 @@
 
 (defun file-template-setup ()
   "Initial setup"
-  (add-hook 'find-file-not-found-hooks 'file-template-new-file-hook)  
+  (add-to-list 'find-file-not-found-functions 'file-template-new-file-hook)  
 )
 
 (provide 'filetemplate)
