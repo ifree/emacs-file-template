@@ -140,7 +140,6 @@
     )
   (file-template-apply-to  tpl-file))
 
-(setq file-template-enabled t)
 (defun file-template-new-file-hook ()
   (when file-template-enabled
     (file-template-load-file)))
