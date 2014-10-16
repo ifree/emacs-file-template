@@ -1,5 +1,4 @@
-#+STARTUP: showall indent
-#+STARTUP: hidestars
+#+STARTUP: showall
 #+OPTIONS: toc:nil
 #+OPTIONS: num:nil
 #+BEGIN_HTML

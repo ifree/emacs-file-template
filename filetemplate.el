@@ -1,24 +1,28 @@
 ;;; filetemplate.el --- Auto insert template when create new file
 
 ;;; Commentary:
-;; Utils for quick add template when create new file
+;; Utils for quick add template when create new file or create project
+;; using template 
 ;;; examples
-;; direct call
-;; `file-template-find-template`
-;; if you want to auto load template, call
-;; file-template-toggle-auto-load
-
+;; `file-template-load-file` to apply template to current file
+;; `file-template-load` to load template
+;; 
 ;;; Code:
 (require 'cl)
+
 (defgroup filetemplate nil
   "emacs file template"
-  :version "1.0"
+  :version "1.1"
   :prefix "file-template"
   :group 'tools
-)
+  )
 
 (defcustom file-template-dir
-  (concat (file-name-directory load-file-name) "templates")
+  (concat (file-name-directory
+           (or load-file-name
+               (expand-file-name
+                "~/.emacs.d/site-lisp/file-template/filetemplate.el"
+                ))) "templates")  
   "Directory that stores file type template.")
 
 (defcustom file-template-ext "\\.tpl"
@@ -28,56 +32,16 @@
   "Prompt use when about to insert template.")
 
 (defcustom file-template-enabled nil
-  "Enable file template or not")
+  "Enable file template or not.")
 
-;; From http://www.emacswiki.org/emacs/ElispCookbook#toc58
-(defun directory-dirs (dir)
-  "Find all directories in DIR."
-  (unless (file-directory-p dir)
-    (error "Not a directory `%s'" dir))
-  (let ((dir (directory-file-name dir))
-        (dirs '())
-        (files (directory-files dir nil nil t)))
-    (dolist (file files)
-      (unless (member file '("." ".." ".git"))
-        (let ((file (concat dir "/" file)))
-          (when (file-directory-p file)
-            (setq dirs (append (cons file
-                                     (directory-dirs file))
-                               dirs))))))
-    dirs))
+(defvar file-template-resolver-func 'yas-expand-snippet
+  "Template resolver, current use `yas-expand-snippet`.")
 
-(defun directory-files-rec (dir &optional pattern)
-  "find all files in dir"
-  (let ((dirs (directory-dirs dir))
-	(files (remove-if  (lambda (x) 
-                             (or 
-                              (file-directory-p x)
-                              (string-match "\\.$" x)))
-                           (directory-files dir t))))
-    (dolist (subdir dirs)
-      (setq files (append files 
-                          (delq nil (mapcar
-                            (lambda (f)
-                              (unless (or
-                                       (file-directory-p (concat subdir "/" f))
-                                       (not (string-match (or pattern ".*") f))
-                                       (member f '("." "..")))
-                                (concat subdir "/" f))
-                              )
-                            (directory-files subdir))))))
-    files))
+(defvar file-template-ignore-list '("." ".." ".git" ".svn")
+  "You can override it in .dir-locals.el.")
 
-(defun file-template-file-to-string (file)
-  "Read FILE content to string."
-  (with-temp-buffer
-    (insert-file file)
-    (buffer-string)))
-
-
-(defun file-template-load-template (&optional mode-name)
-  "Load templte by MODE-NAME."
-  (interactive)
+(defun file-template-choose-template (&optional mode-name)
+  "Choose template by MODE-NAME."
   (unless mode-name
       (set-auto-mode)
       (setq mode-name (symbol-name major-mode)))
@@ -88,62 +52,102 @@
              (read-file-name "select template " template-dir nil t nil (lambda (x) (string-match "\.tpl$" x)))
            nil
            )
-        ))    
-    (if template
-        (file-template-process-template template)
-      (message "template for current major mode does not exists."
-      ))))
+        ))
+    template))
+
+(defun file-template-file-to-string (file)
+  "Read FILE content to string."
+  (with-temp-buffer
+    (insert-file file)
+    (buffer-string)))
 
 
-(defun file-template-find-template (template-dir)
-  (interactive 
-   (list 
-    (read-directory-name "choose template base directory: " file-template-dir)))
-  (let (
-        (template 
-         ;; TODO user can only choose file
-         (yas-completing-prompt
-          "choose template"
-          (directory-files template-dir t file-template-ext) #'file-name-base)))
-    (if template
-        (file-template-process-template template)
-      (message "template for current major mode does not exists."))))
+(defun file-template-resolver (content file &optional dir-mode target-dir)
+  "Open FILE then parse CONTENT, if in DIR-MODE create file in TARGET-DIR first."
+  (when file-template-resolver-func
+    (if dir-mode
+        (let ((file-template-enabled nil)) ;inhibit promot when dir-mode
+          (find-file
+           (concat
+            target-dir
+            (replace-regexp-in-string
+             (concat
+              (expand-file-name file-template-dir)
+              "/[^/]+/[^/]+/"              ;/mode/xxx.tpl
+              ) ""
+                (expand-file-name file)))))
+      (switch-to-buffer (buffer-name)))
+    (if (and file-template-prompt (not dir-mode)) ;inhibit promot when dir mode
+        (when (funcall file-template-prompt "apply this template? ")
+          (funcall file-template-resolver-func content))
+      (funcall file-template-resolver-func content))))
 
-
-(defun file-template-process-template (template)
-  "Process the TEMPLATE."
-  (when (funcall file-template-prompt "do you want to apply this template?")
-   (if (file-directory-p template)
-       (file-template-process-templateEx template)
-     (yas-expand-snippet (file-template-file-to-string template))))
-  )
-
-(defun file-template-process-templateEx (template-dir)
-  "Process special template which is a directory contains a set of folder."
-  (let ((target-dir (read-directory-name "choose target directory: ")))
-    (dolist (file (directory-files-rec template-dir))
-      (let* ((target-file 
-              (concat 
-               target-dir 
-               (replace-regexp-in-string (concat "^" (regexp-quote template-dir)) "" file)))
-             (target-file-parent (file-name-directory target-file)))
-        (unless (file-directory-p target-file-parent)
-          (make-directory target-file-parent t))
-        (with-temp-file target-file
-          (yas-expand-snippet (file-template-file-to-string file))
+(defun file-template-apply-to (file &optional allow-dir target-dir)
+  "Apply template to a FILE. if ALLOW-DIR will apply directory based template."
+  (interactive)
+  (when file
+    (if (and (file-directory-p file) allow-dir)
+        (progn
+          (dolist (f (directory-files file))
+            (when (not (member f file-template-ignore-list))
+              (file-template-apply-to (concat file "/" f) allow-dir target-dir)
+              )
+            )
           )
-))))
+      (funcall
+       'file-template-resolver
+       (file-template-file-to-string file)
+       file
+       allow-dir target-dir))))
 
 
+(defun file-template-load (&optional template-file-or-dir target-dir)
+  "Load a template from TEMPLATE-DIR."
+  (interactive)
+  (unless template-file-or-dir
+    (let* ((tpl-type
+            (completing-read
+             "select template type "
+             (directory-files file-template-dir)
+             '(lambda (x) (not (member x file-template-ignore-list)))
+             t
+             ))
+           (tpl
+            (completing-read
+             "select template "
+             (directory-files (concat file-template-dir "/" tpl-type))
+             '(lambda (x) (not (member x file-template-ignore-list)))
+             t 
+             )
+            )
+           )
+      (setq template-file-or-dir
+            (concat file-template-dir "/" tpl-type "/" tpl))))
+  (when (and (file-directory-p template-file-or-dir) (not target-dir))
+    (setq target-dir
+          (read-directory-name
+           "please set target directory to evaluate the template. ")))
+  (file-template-apply-to
+   template-file-or-dir
+   (file-directory-p template-file-or-dir)
+   target-dir))
+
+(defun file-template-load-file (&optional tpl-file)
+  "Load a TEMPLATE-FILE."
+  (interactive)
+  (unless tpl-file
+    (setq tpl-file (file-template-choose-template))
+    )
+  (file-template-apply-to  tpl-file))
+
+(setq file-template-enabled t)
 (defun file-template-new-file-hook ()
   (when file-template-enabled
-    (file-template-load-template))
-)
+    (file-template-load-file)))
 
 (defun file-template-setup ()
   "Initial setup"
-  (add-to-list 'find-file-not-found-functions 'file-template-new-file-hook t)
-)
+  (add-to-list 'find-file-not-found-functions 'file-template-new-file-hook t))
 
 (provide 'filetemplate)
 
