@@ -77,10 +77,15 @@
               ) ""
                 (expand-file-name file)))))
       (switch-to-buffer (buffer-name)))
-    (if (and file-template-prompt (not dir-mode)) ;inhibit promot when dir mode
+    (let ((func (if (string-match (concat file-template-ext "$") file)
+                    file-template-resolver-func
+                  'insert)))
+      (if (and file-template-prompt (not dir-mode)) ;inhibit promot when dir mode
         (when (funcall file-template-prompt "apply this template? ")
-          (funcall file-template-resolver-func content))
-      (funcall file-template-resolver-func content))))
+          (funcall func content))
+      (funcall func content))
+      (save-buffer))))
+
 
 (defun file-template-apply-to (file &optional allow-dir target-dir)
   "Apply template to a FILE. if ALLOW-DIR will apply directory based template."
