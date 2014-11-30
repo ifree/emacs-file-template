@@ -43,8 +43,9 @@
 (defun file-template-choose-template (&optional mode-name)
   "Choose template by MODE-NAME."
   (unless mode-name
-      (set-auto-mode)
-      (setq mode-name (symbol-name major-mode)))
+      (setq mode-name
+            (symbol-name
+             (assoc-default (buffer-file-name) auto-mode-alist 'string-match))))
   (let* (
         (template-dir (concat file-template-dir "/"  mode-name "/"))
         (template 
