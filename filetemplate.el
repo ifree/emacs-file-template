@@ -141,6 +141,7 @@
 (defun file-template-load-file (&optional tpl-file)
   "Load a TEMPLATE-FILE."
   (interactive)
+  (yas-minor-mode-on)
   (unless tpl-file
     (setq tpl-file (file-template-choose-template))
     )
