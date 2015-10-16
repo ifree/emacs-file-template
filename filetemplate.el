@@ -34,7 +34,9 @@
 (defcustom file-template-enabled nil
   "Enable file template or not.")
 
-(defvar file-template-resolver-func 'yas-expand-snippet
+(defvar file-template-resolver-func (lambda (c)
+                                      (yas-minor-mode-on)
+                                      (yas-expand-snippet c))
   "Template resolver, current use `yas-expand-snippet`.")
 
 (defvar file-template-ignore-list '("." ".." ".git" ".svn")
