@@ -45,18 +45,17 @@
 (defun file-template-choose-template (&optional mode-name)
   "Choose template by MODE-NAME."
   (unless mode-name
+    (let ((symbol-name (assoc-default (buffer-file-name) auto-mode-alist 'string-match)))
       (setq mode-name
-            (symbol-name
-             (assoc-default (buffer-file-name) auto-mode-alist 'string-match))))
-  (let* (
-        (template-dir (concat file-template-dir "/"  mode-name "/"))
+            symbol-name)))
+ 
+  (when (characterp mode-name)
+    (let* ((template-dir (concat file-template-dir "/"  mode-name "/"))
         (template 
          (if (file-directory-p template-dir)
              (read-file-name "select template " template-dir nil t nil (lambda (x) (string-match "\.tpl$" x)))
-           nil
-           )
-        ))
-    template))
+           nil)))
+    template)))
 
 (defun file-template-file-to-string (file)
   "Read FILE content to string."
